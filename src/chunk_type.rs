@@ -17,6 +17,14 @@ pub struct ChunkType([u8; 4]);
 impl TryFrom<[u8; 4]> for ChunkType {
 
     fn try_from(value: [u8; 4]) -> Result<Self, self::Error> {
+        let valid_chars = value
+		.iter()
+		.all(|&c| c >= b'a' && c <= b'z' || c >= b'A' && c <= b'Z');
+
+		if !valid_chars {
+			return Err(Box::new(ChunkTypeError::InvalidCharacter));
+		}
+
         Ok(Self(value))
     }
 
