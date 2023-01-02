@@ -8,8 +8,8 @@ use crate::{Result, Error};
 
 #[derive(Debug, Clone)]
 pub struct Chunk {
-	chunk_type: ChunkType,
     length: u32,
+	chunk_type: ChunkType,
 	data: Vec<u8>,
     crc: u32
 }
@@ -84,7 +84,7 @@ impl TryFrom<&[u8]> for Chunk {
         }
 
         Ok(Self {
-            length: data_length as u32,
+            length: data_length,
             chunk_type: chunk_type,
             data: chunk_data,
             crc: crc

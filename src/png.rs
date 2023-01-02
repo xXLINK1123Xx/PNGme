@@ -1,83 +1,83 @@
 use std::fmt::Display;
-use std::io::Read;
-use std::ops::Index;
-use std::str::FromStr;
 
 use crate::chunk::Chunk;
-use crate::chunk_type::ChunkType;
-use crate::{Error, chunk_type};
+use crate::{Error};
 
 pub struct Png {
-  header: [u8; 8],
-  chunks: Vec<Chunk>
+    header: [u8; 8],
+    chunks: Vec<Chunk>
 }
 
 impl Png {
 
-  pub const STANDARD_HEADER: [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
+    pub const STANDARD_HEADER: [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
 
-  pub fn from_chunks(chunks: Vec<Chunk>) -> Png {
-    Self { header: Png::STANDARD_HEADER, chunks: chunks }
-  }
-
-  pub fn append_chunk(&mut self, chunk: Chunk) {
-    self.chunks.push(chunk);
-  }
-
-  pub fn remove_chunk(&mut self, chunk_type: &str) -> Result<Chunk, Error> {
-    let index = self.chunks.iter().position(|c| c.chunk_type().to_string() == chunk_type).unwrap();
-    let chunk = self.chunks.remove(index);
-    return Ok(chunk);
-  }
-
-  pub fn header(&self) -> &[u8; 8] {
-    &self.header
-  }
-
-  pub fn chunks(&self) -> &[Chunk] {
-    &self.chunks
-  }
-
-  pub fn chunk_by_type(&self, chunk_type: &str) -> Option<&Chunk> {
-    for chunk in self.chunks.iter() {
-      if chunk.chunk_type().to_string() == chunk_type {
-        return Some(&chunk);
-      }
+    pub fn from_chunks(chunks: Vec<Chunk>) -> Png {
+        Self { header: Png::STANDARD_HEADER, chunks: chunks }
     }
 
-    None
-  }
+    pub fn append_chunk(&mut self, chunk: Chunk) {
+        self.chunks.push(chunk);
+    }
 
-  pub fn as_bytes(&self) -> Vec<u8> {
-    let mut bytes: Vec<u8> = Vec::new();
-    let mut chunk_bytes: Vec<u8> = self.chunks.iter().map(|chunk| chunk.as_bytes()).flatten().clone().collect();
-    bytes.append(&mut self.header.to_vec());
-    bytes.append(&mut chunk_bytes);
+    pub fn remove_chunk(&mut self, chunk_type: &str) -> Result<Chunk, Error> {
+        let index = self.chunks.iter().position(|c| c.chunk_type().to_string() == chunk_type);
+        match index {
+            Some(i) => {
+                let chunk = self.chunks.remove(i);
+                return Ok(chunk);
+            },
+            None => return Err(Box::new(PngError::ChunkNotFoundError(chunk_type.to_string())))
+        }
+    }
 
-    bytes
-  }
+    pub fn header(&self) -> &[u8; 8] {
+        &self.header
+    }
+    pub fn chunks(&self) -> &[Chunk] {
+        &self.chunks
+    }
 
-  fn process_chunks(data: &[u8]) -> Result<Vec<Chunk>, Error> {
-      let mut pos = 0;
-      let mut chunks: Vec<Chunk> = Vec::new();
-      while pos < data.len() {
-        let chunk = Chunk::try_from(&data[pos..]).unwrap();
+    pub fn chunk_by_type(&self, chunk_type: &str) -> Option<&Chunk> {
+        for chunk in self.chunks.iter() {
+        if chunk.chunk_type().to_string() == chunk_type {
+            return Some(&chunk);
+        }
+        }
 
-        // if pos == 0 && chunk.chunk_type().to_string() != "IHDR" {
-        //   return Err(Box::new(PngError::CorruptedFileError));
-        // }
+        None
+    }
 
-        pos += chunk.as_bytes().len();
+    pub fn as_bytes(&self) -> Vec<u8> {
+        let mut bytes: Vec<u8> = Vec::new();
+        let mut chunk_bytes: Vec<u8> = self.chunks.iter().map(|chunk| chunk.as_bytes()).flatten().clone().collect();
+        bytes.append(&mut self.header.to_vec());
+        bytes.append(&mut chunk_bytes);
 
-        // if pos >= data.len() && chunk.chunk_type().to_string() != "IEND" {
-        //   return Err(Box::new(PngError::CorruptedFileError));
-        // }
+        bytes
+    }
 
-        chunks.push(chunk);
-      }
+    fn process_chunks(data: &[u8]) -> Result<Vec<Chunk>, Error> {
+        let mut pos = 0;
+        let mut chunks: Vec<Chunk> = Vec::new();
+        while pos < data.len() {
+            let chunk = Chunk::try_from(&data[pos..]).unwrap();
 
-      Ok(chunks)
-  }
+            // if pos == 0 && chunk.chunk_type().to_string() != "IHDR" {
+            //   return Err(Box::new(PngError::CorruptedFileError));
+            // }
+
+            pos += chunk.as_bytes().len();
+
+            // if pos >= data.len() && chunk.chunk_type().to_string() != "IEND" {
+            //   return Err(Box::new(PngError::CorruptedFileError));
+            // }
+
+            chunks.push(chunk);
+        }
+
+        Ok(chunks)
+}
 
 }
 
@@ -87,7 +87,7 @@ impl TryFrom<&[u8]> for Png {
     fn try_from(value: &[u8]) -> Result<Self, self::Error> {
         let header : [u8; 8] = value[0..8].try_into().unwrap();
         if header != Self::STANDARD_HEADER {
-          return Err(Box::new(PngError::InvalidHeaderError));
+            return Err(Box::new(PngError::InvalidHeaderError));
         }
 
         let chunks = Self::process_chunks(&value[8..]).unwrap();
@@ -98,15 +98,20 @@ impl TryFrom<&[u8]> for Png {
 
 impl Display for Png {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.chunks.len())
+        write!(f, "\n");
+        for chunk in self.chunks.iter() {
+            writeln!(f, "{}", chunk);
+        }
+
+        write!(f, "\n")
     }
 }
 
 #[derive(Debug)]
 enum PngError {
-  InvalidHeaderError,
-  CorruptedFileError,
-  ChunkNotFoundError(String)
+    InvalidHeaderError,
+    CorruptedFileError,
+    ChunkNotFoundError(String)
 }
 
 impl std::error::Error for PngError {}
